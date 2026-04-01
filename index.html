@@ -62,6 +62,26 @@
         .memory-card.flipped { transform: rotateY(180deg); }
         .memory-card-front, .memory-card-back { backface-visibility: hidden; }
         .memory-card-front { transform: rotateY(180deg); }
+
+        /* Blackjack Animations */
+        @keyframes dealIn {
+            0% { opacity: 0; transform: translateY(-50px) scale(0.8) rotate(5deg); }
+            100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+        }
+        .animate-deal { animation: dealIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards; }
+        
+        @keyframes flipReveal {
+            0% { transform: rotateY(180deg) scale(1.1); }
+            50% { transform: rotateY(90deg) scale(1.2); }
+            100% { transform: rotateY(0deg) scale(1); }
+        }
+        .animate-flip { animation: flipReveal 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        .bj-card-wrapper { perspective: 1000px; }
+        .bj-card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+        .bj-card-hidden .bj-card-inner { transform: rotateY(180deg); }
+        .bj-card-front, .bj-card-back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 0.5rem; }
+        .bj-card-back { transform: rotateY(180deg); }
     </style>
 </head>
 <body class="bg-darkBg text-slate-200 font-sans min-h-screen flex flex-col overflow-x-hidden">
@@ -157,6 +177,15 @@
     <script>
         // --- 1. GAME DATABASE ---
         const gamesDatabase = [
+            {
+                id: 'blackjack',
+                title: 'Neon Blackjack',
+                category: 'Strategy',
+                icon: 'ph-suit-spade',
+                gradient: 'from-emerald-600 to-teal-400',
+                playable: true,
+                desc: 'Race to 21 in this cyberpunk card game. Beat the dealer without going bust!'
+            },
             {
                 id: 'clicker',
                 title: 'Official Cookie Clicker',
@@ -300,6 +329,7 @@
             if (game.id === 'clicker') initClickerGame();
             if (game.id === 'tictactoe') initTicTacToe();
             if (game.id === 'emojimatch') initEmojiMatch();
+            if (game.id === 'blackjack') initBlackjackGame();
         }
 
         function closeGame() {
@@ -624,6 +654,237 @@
             }));
             
             document.getElementById('mem-reset').addEventListener('click', initEmojiMatch);
+        }
+
+        function initBlackjackGame() {
+            let deck = [];
+            let playerHand = [];
+            let dealerHand = [];
+            let state = 'idle'; // idle, playing, dealerTurn, over
+            let message = 'Press Deal to Start';
+            let stats = { wins: 0, losses: 0, draws: 0 };
+
+            const suits = ['♥', '♦', '♣', '♠'];
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+            function createDeck() {
+                deck = [];
+                for (let s of suits) {
+                    for (let v of values) {
+                        deck.push({ suit: s, value: v });
+                    }
+                }
+                for (let i = deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [deck[i], deck[j]] = [deck[j], deck[i]];
+                }
+            }
+
+            function calcValue(hand) {
+                let val = 0;
+                let aces = 0;
+                for (let card of hand) {
+                    if (['J', 'Q', 'K'].includes(card.value)) val += 10;
+                    else if (card.value === 'A') { val += 11; aces += 1; }
+                    else val += parseInt(card.value);
+                }
+                while (val > 21 && aces > 0) {
+                    val -= 10;
+                    aces -= 1;
+                }
+                return val;
+            }
+
+            function render() {
+                const container = document.getElementById('gameContainer');
+                
+                const renderCard = (card, hidden = false, isDealerSecond = false) => {
+                    const isRed = card.suit === '♥' || card.suit === '♦';
+                    const colorClass = isRed ? 'text-rose-600' : 'text-slate-900';
+                    
+                    // Deal animation
+                    const dealAnim = card.isNew ? 'animate-deal' : '';
+                    card.isNew = false; 
+                    
+                    // Flip animation for dealer's second card
+                    let flipAnim = '';
+                    let hiddenClass = hidden ? 'bj-card-hidden' : '';
+                    if (isDealerSecond && state !== 'idle' && state !== 'playing') {
+                        flipAnim = 'animate-flip';
+                        hiddenClass = ''; // Remove static hidden state so it can animate
+                    }
+
+                    // Staggered delay for initial dealing
+                    const delay = card.dealDelay ? `animation-delay: ${card.dealDelay}ms;` : '';
+                    card.dealDelay = 0; 
+                    
+                    return `
+                    <div class="w-16 h-24 sm:w-20 sm:h-28 bj-card-wrapper ${dealAnim}" style="${delay}">
+                        <div class="bj-card-inner ${hiddenClass} ${flipAnim}">
+                            <!-- Front of card -->
+                            <div class="bj-card-front bg-slate-100 border-2 border-slate-300 flex flex-col justify-between p-2 shadow-md ${colorClass}">
+                                <div class="text-sm sm:text-base font-bold leading-none">${card.value}</div>
+                                <div class="text-2xl sm:text-3xl text-center flex-grow flex items-center justify-center">${card.suit}</div>
+                                <div class="text-sm sm:text-base font-bold leading-none text-right rotate-180">${card.value}</div>
+                            </div>
+                            <!-- Back of card -->
+                            <div class="bj-card-back bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-md bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjMWUyOTNiIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDBMOCA4Wk04IDBMMCA4WiIgc3Ryb2tlPSIjMzM0MTU1IiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+')]">
+                            </div>
+                        </div>
+                    </div>`;
+                };
+
+                const dealerHtml = dealerHand.map((c, i) => renderCard(c, state === 'playing' && i === 1, i === 1)).join('');
+                const playerHtml = playerHand.map(c => renderCard(c)).join('');
+                
+                let controlsHtml = '';
+                if (state === 'idle' || state === 'over') {
+                    controlsHtml = `<button id="bj-deal" class="bg-brand hover:bg-brandHover text-white font-bold py-3 px-8 rounded-full transition w-48 shadow-[0_0_15px_rgba(139,92,246,0.5)]">Deal Cards</button>`;
+                } else if (state === 'playing') {
+                    controlsHtml = `
+                        <button id="bj-hit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-full transition w-32 shadow-[0_0_15px_rgba(5,150,105,0.5)]">Hit</button>
+                        <button id="bj-stand" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-8 rounded-full transition w-32 shadow-[0_0_15px_rgba(225,29,72,0.5)]">Stand</button>
+                    `;
+                } else {
+                    controlsHtml = `<div class="text-slate-400 font-bold py-3 animate-pulse text-lg">Processing...</div>`;
+                }
+
+                container.innerHTML = `
+                    <div class="flex flex-col items-center bg-cardBg p-6 sm:p-8 rounded-2xl border border-slate-700 shadow-2xl max-w-2xl w-full">
+                        <div class="flex justify-between w-full mb-6 text-sm font-bold text-slate-400 bg-slate-800 px-6 py-3 rounded-full border border-slate-700">
+                            <div>Wins: <span class="text-emerald-400">${stats.wins}</span></div>
+                            <div>Draws: <span class="text-slate-300">${stats.draws}</span></div>
+                            <div>Losses: <span class="text-rose-400">${stats.losses}</span></div>
+                        </div>
+
+                        <div class="w-full mb-8">
+                            <div class="flex justify-between items-end mb-2">
+                                <h3 class="text-slate-400 font-bold tracking-widest uppercase text-xs">Dealer</h3>
+                                <div class="text-white font-bold">${state === 'playing' ? '?' : calcValue(dealerHand)}</div>
+                            </div>
+                            <div class="flex gap-2 min-h-[6rem] sm:min-h-[7rem] p-4 bg-slate-800/50 rounded-xl border border-slate-800/50 flex-wrap justify-center">
+                                ${dealerHand.length ? dealerHtml : '<div class="text-slate-600 italic flex items-center">Waiting for deal...</div>'}
+                            </div>
+                        </div>
+
+                        <div class="h-8 mb-4">
+                            <h2 class="text-xl font-bold text-white text-center tracking-wide" style="text-shadow: 0 0 10px rgba(255,255,255,0.3)">${message}</h2>
+                        </div>
+
+                        <div class="w-full mb-8">
+                            <div class="flex justify-between items-end mb-2">
+                                <h3 class="text-brand font-bold tracking-widest uppercase text-xs">You</h3>
+                                <div class="text-white font-bold">${calcValue(playerHand)}</div>
+                            </div>
+                            <div class="flex gap-2 min-h-[6rem] sm:min-h-[7rem] p-4 bg-slate-800/50 rounded-xl border border-slate-800/50 flex-wrap justify-center">
+                                ${playerHand.length ? playerHtml : '<div class="text-slate-600 italic flex items-center">Waiting for deal...</div>'}
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4 justify-center h-12 items-center">
+                            ${controlsHtml}
+                        </div>
+                    </div>
+                `;
+
+                if (document.getElementById('bj-deal')) document.getElementById('bj-deal').addEventListener('click', startGame);
+                if (document.getElementById('bj-hit')) document.getElementById('bj-hit').addEventListener('click', hit);
+                if (document.getElementById('bj-stand')) document.getElementById('bj-stand').addEventListener('click', stand);
+            }
+
+            function startGame() {
+                createDeck();
+                
+                const p1 = deck.pop(); p1.isNew = true; p1.dealDelay = 0;
+                const d1 = deck.pop(); d1.isNew = true; d1.dealDelay = 150;
+                const p2 = deck.pop(); p2.isNew = true; p2.dealDelay = 300;
+                const d2 = deck.pop(); d2.isNew = true; d2.dealDelay = 450;
+                
+                playerHand = [p1, p2];
+                dealerHand = [d1, d2];
+                
+                state = 'playing';
+                message = 'Hit or Stand?';
+                
+                if (calcValue(playerHand) === 21) {
+                    state = 'dealerTurn';
+                    render();
+                    setTimeout(() => endGame(), 1200);
+                } else {
+                    render();
+                }
+            }
+
+            function hit() {
+                const c = deck.pop();
+                c.isNew = true;
+                playerHand.push(c);
+                if (calcValue(playerHand) > 21) {
+                    state = 'dealerTurn';
+                    render();
+                    setTimeout(() => endGame(), 600);
+                } else {
+                    render();
+                }
+            }
+
+            function stand() {
+                state = 'dealerTurn';
+                render();
+                endGame();
+            }
+
+            function endGame() {
+                const pVal = calcValue(playerHand);
+                
+                const checkWinner = () => {
+                    state = 'over';
+                    const finalP = calcValue(playerHand);
+                    const finalD = calcValue(dealerHand);
+                    
+                    if (finalP > 21) {
+                        message = '<span class="text-rose-400">Bust! You Lose.</span>';
+                        stats.losses++;
+                    } else if (finalD > 21) {
+                        message = '<span class="text-emerald-400">Dealer Busts! You Win!</span>';
+                        stats.wins++;
+                    } else if (finalP > finalD) {
+                        message = '<span class="text-emerald-400">You Win!</span>';
+                        stats.wins++;
+                    } else if (finalP < finalD) {
+                        message = '<span class="text-rose-400">Dealer Wins.</span>';
+                        stats.losses++;
+                    } else {
+                        message = '<span class="text-slate-300">Push! It is a Tie.</span>';
+                        stats.draws++;
+                    }
+                    render();
+                };
+
+                const dealerTurn = () => {
+                    const dVal = calcValue(dealerHand);
+                    if (pVal <= 21 && dVal < 17) {
+                        const c = deck.pop();
+                        c.isNew = true;
+                        dealerHand.push(c);
+                        render();
+                        setTimeout(dealerTurn, 600);
+                    } else {
+                        checkWinner();
+                    }
+                };
+
+                if (pVal <= 21) {
+                    render(); // Render flips the hidden card
+                    setTimeout(dealerTurn, 800);
+                } else {
+                    render(); // Render flips the hidden card even if player busted
+                    setTimeout(checkWinner, 800);
+                }
+            }
+
+            // Initial render
+            render();
         }
 
         // --- 7. START APP ---
