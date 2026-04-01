@@ -67,7 +67,7 @@
 <body class="bg-darkBg text-slate-200 font-sans min-h-screen flex flex-col overflow-x-hidden">
 
     <!-- Top Navigation -->
-    <nav class="sticky top-0 z-40 bg-cardBg/90 backdrop-blur-md border-b border-slate-800 p-4">
+    <nav id="topNav" class="sticky top-0 z-40 bg-cardBg/90 backdrop-blur-md border-b border-slate-800 p-4 transition-all">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <!-- Logo -->
             <div class="flex items-center gap-3 text-2xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-neonBlue to-brand tracking-wide">
@@ -99,9 +99,8 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="flex-grow max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
-
+    <!-- HUB VIEW -->
+    <main id="hubView" class="flex-grow max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 transition-all">
         <!-- Categories Filter -->
         <div class="flex items-center gap-3 overflow-x-auto no-scrollbar mb-8 pb-2 border-b border-slate-800" id="categoryTabs">
             <!-- Populated via JS -->
@@ -110,6 +109,40 @@
         <!-- Games Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="gamesGrid">
             <!-- Populated via JS -->
+        </div>
+    </main>
+
+    <!-- PLAYER VIEW (Hidden by Default) -->
+    <main id="playerView" class="hidden flex-grow w-full max-w-6xl mx-auto p-4 md:p-6 flex flex-col transition-all duration-300">
+        
+        <!-- Back Button & Header -->
+        <div class="mb-4">
+            <button onclick="closeGame()" class="flex items-center gap-2 text-slate-400 hover:text-white transition group w-max">
+                <div class="bg-slate-800 p-2 rounded-full group-hover:bg-brand transition">
+                    <i class="ph-bold ph-arrow-left text-lg group-hover:text-white"></i>
+                </div>
+                <span class="font-bold hidden sm:inline">Back to Arcade</span>
+            </button>
+        </div>
+
+        <div class="w-full flex justify-between items-end mb-6 border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-4">
+                <div id="gameIcon" class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-3xl text-white shadow-lg bg-slate-800"></div>
+                <div>
+                    <p id="gameCategory" class="text-brand text-xs uppercase font-bold tracking-widest mb-1"></p>
+                    <h1 id="gameTitle" class="text-2xl sm:text-4xl font-display font-black text-white"></h1>
+                </div>
+            </div>
+            <button id="btn-fullscreen" class="bg-slate-800 hover:bg-brand text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition text-sm shadow-lg border border-slate-700 hover:border-brand">
+                <i id="fs-icon" class="ph-bold ph-corners-out text-lg"></i> <span id="fs-text" class="hidden sm:inline">Maximize</span>
+            </button>
+        </div>
+
+        <!-- Game Container -->
+        <div id="gameWrapper" class="w-full flex-grow flex items-center justify-center relative">
+            <div id="gameContainer" class="w-full flex justify-center items-center">
+                <!-- Game UI gets injected here -->
+            </div>
         </div>
 
     </main>
@@ -120,33 +153,8 @@
         <p class="mt-2">Built for gamers, by gamers.</p>
     </footer>
 
-    <!-- Fullscreen Game Modal -->
-    <div id="gameModal" class="fixed inset-0 bg-darkBg/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center opacity-0 transition-opacity duration-300">
-        <!-- Modal Header -->
-        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-center bg-cardBg/80 border-b border-slate-800">
-            <div class="flex items-center gap-3">
-                <div id="modalGameIcon" class="w-10 h-10 rounded bg-brand flex items-center justify-center text-xl text-white"></div>
-                <div>
-                    <h2 id="modalGameTitle" class="text-white font-bold text-lg">Game Title</h2>
-                    <p id="modalGameCategory" class="text-brand text-xs uppercase font-bold">Category</p>
-                </div>
-            </div>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 hover:text-white rounded-full p-2 transition flex items-center justify-center">
-                <i class="ph ph-x text-xl"></i>
-            </button>
-        </div>
-
-        <!-- Modal Game Container -->
-        <div id="gameContainer" class="w-full max-w-4xl h-full mt-20 p-4 flex items-center justify-center">
-            <!-- Game UI gets injected here -->
-        </div>
-    </div>
-
     <!-- Application Logic -->
     <script>
-        // Global variable to track active game loops so we can stop them when the modal closes
-        let currentGameInterval = null;
-
         // --- 1. GAME DATABASE ---
         const gamesDatabase = [
             {
@@ -226,15 +234,11 @@
             }
 
             filteredGames.forEach(game => {
-                const playableBadge = game.playable 
-                    ? `<span class="absolute top-3 right-3 bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded border border-green-500/30 backdrop-blur">PLAYABLE</span>` 
-                    : `<span class="absolute top-3 right-3 bg-slate-800/80 text-slate-400 text-xs font-bold px-2 py-1 rounded border border-slate-700 backdrop-blur">COMING SOON</span>`;
-
                 const cardHTML = `
                     <div class="game-card bg-cardBg rounded-2xl overflow-hidden border border-slate-800 flex flex-col h-full cursor-pointer group" onclick="openGame('${game.id}')">
                         <!-- Thumbnail Area -->
                         <div class="h-40 bg-gradient-to-br ${game.gradient} relative flex items-center justify-center overflow-hidden">
-                            ${playableBadge}
+                            <span class="absolute top-3 right-3 bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded border border-green-500/30 backdrop-blur">PLAYABLE</span>
                             <i class="ph-duotone ${game.icon} text-7xl text-white/50 group-hover:scale-110 group-hover:text-white transition duration-300"></i>
                             <div class="absolute inset-0 bg-gradient-to-t from-cardBg to-transparent opacity-80"></div>
                         </div>
@@ -246,9 +250,8 @@
                             <p class="text-slate-400 text-sm flex-grow line-clamp-2">${game.desc}</p>
                             
                             <!-- Play Button -->
-                            <div class="mt-4 flex items-center gap-2 text-sm font-bold ${game.playable ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'} transition">
-                                <i class="${game.playable ? 'ph-fill ph-play-circle text-brand' : 'ph ph-clock'} text-xl"></i>
-                                ${game.playable ? 'Launch Game' : 'View Details'}
+                            <div class="mt-4 flex items-center gap-2 text-sm font-bold text-white transition">
+                                <i class="ph-fill ph-play-circle text-brand text-xl"></i> Launch Game
                             </div>
                         </div>
                     </div>
@@ -267,122 +270,89 @@
         document.getElementById('searchInput').addEventListener('input', handleSearch);
         document.getElementById('searchInputMobile').addEventListener('input', handleSearch);
 
-        // --- 4. MODAL & GAME LAUNCHER LOGIC ---
+        // --- 4. GAME LAUNCHER (SINGLE PAGE APP LOGIC) ---
         
-        const modal = document.getElementById('gameModal');
-        const gameContainer = document.getElementById('gameContainer');
+        const hubView = document.getElementById('hubView');
+        const playerView = document.getElementById('playerView');
+        const topNav = document.getElementById('topNav');
 
         function openGame(gameId) {
             const game = gamesDatabase.find(g => g.id === gameId);
             if (!game) return;
 
-            // Setup Header
-            document.getElementById('modalGameTitle').innerText = game.title;
-            document.getElementById('modalGameCategory').innerText = game.category;
-            const iconDiv = document.getElementById('modalGameIcon');
-            iconDiv.className = `w-10 h-10 rounded flex items-center justify-center text-xl text-white bg-gradient-to-br ${game.gradient}`;
+            // Setup Player Header
+            document.getElementById('gameTitle').innerText = game.title;
+            document.getElementById('gameCategory').innerText = game.category;
+            
+            const iconDiv = document.getElementById('gameIcon');
+            iconDiv.className = `w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-3xl text-white bg-gradient-to-br ${game.gradient} shadow-lg shadow-brand/20`;
             iconDiv.innerHTML = `<i class="ph-fill ${game.icon}"></i>`;
 
-            // Clear container
-            gameContainer.innerHTML = '';
+            // Clear previous game content
+            document.getElementById('gameContainer').innerHTML = '';
 
-            if (game.playable) {
-                if (game.id === 'tictactoe') initTicTacToe();
-                else if (game.id === 'emojimatch') initEmojiMatch();
-                else if (game.id === 'clicker') initClickerGame();
-            } else {
-                // Show Coming Soon state
-                gameContainer.innerHTML = `
-                    <div class="text-center bg-cardBg border border-slate-700 p-12 rounded-2xl max-w-lg w-full">
-                        <i class="ph-duotone ${game.icon} text-8xl text-slate-600 mb-6 block"></i>
-                        <h2 class="text-3xl font-display font-bold text-white mb-4">Under Construction</h2>
-                        <p class="text-slate-400 mb-8">${game.title} is currently in development. Our cyber-monkeys are coding furiously. Check back soon!</p>
-                        <button onclick="closeModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg transition">
-                            Return to Hub
-                        </button>
-                    </div>
-                `;
-            }
+            // Switch views natively without changing URL
+            hubView.classList.add('hidden');
+            playerView.classList.remove('hidden');
+            window.scrollTo(0, 0);
 
-            // Show Modal
-            modal.classList.remove('hidden');
-            // Small delay to trigger opacity transition
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-            }, 10);
+            // Initialize Game
+            if (game.id === 'clicker') initClickerGame();
+            if (game.id === 'tictactoe') initTicTacToe();
+            if (game.id === 'emojimatch') initEmojiMatch();
+        }
+
+        function closeGame() {
+            // Clean up memory and running iframes
+            document.getElementById('gameContainer').innerHTML = '';
             
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            // Switch back to hub
+            playerView.classList.add('hidden');
+            hubView.classList.remove('hidden');
+
+            // Restore if maximized
+            if (isMaximized) toggleFullscreen();
         }
 
-        function closeModal() {
-            modal.classList.add('opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                gameContainer.innerHTML = ''; // Clean up memory
-                
-                // Stop any running game loops
-                if (currentGameInterval) {
-                    clearInterval(currentGameInterval);
-                    currentGameInterval = null;
-                }
+        // --- 5. FULLSCREEN MAXIMIZE LOGIC ---
+        
+        let isMaximized = false;
+        const fullscreenBtn = document.getElementById('btn-fullscreen');
+        const fsIcon = document.getElementById('fs-icon');
+        const fsText = document.getElementById('fs-text');
 
-                document.body.style.overflow = 'auto';
-            }, 300); // match transition duration
+        function toggleFullscreen() {
+            isMaximized = !isMaximized;
+            if (isMaximized) {
+                playerView.classList.add('fixed', 'inset-0', 'z-50', 'bg-darkBg', 'max-w-none', 'p-2');
+                playerView.classList.remove('max-w-6xl', 'mx-auto', 'p-4', 'md:p-6');
+                fsIcon.classList.replace('ph-corners-out', 'ph-corners-in');
+                fsText.innerText = 'Restore';
+                fullscreenBtn.classList.add('bg-brand', 'border-brand');
+                topNav.classList.add('hidden'); // Hide main nav
+            } else {
+                playerView.classList.remove('fixed', 'inset-0', 'z-50', 'bg-darkBg', 'max-w-none', 'p-2');
+                playerView.classList.add('max-w-6xl', 'mx-auto', 'p-4', 'md:p-6');
+                fsIcon.classList.replace('ph-corners-in', 'ph-corners-out');
+                fsText.innerText = 'Maximize';
+                fullscreenBtn.classList.remove('bg-brand', 'border-brand');
+                topNav.classList.remove('hidden'); // Show main nav
+            }
         }
 
-        // --- 5. MINI-GAMES IMPLEMENTATION ---
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-        // Game 0: Official Cookie Clicker (Embed)
+        // --- 6. GAME INITIALIZERS ---
+
         function initClickerGame() {
             const html = `
-                <div id="clicker-card" class="flex flex-col items-center bg-cardBg p-4 sm:p-6 rounded-2xl border border-slate-700 shadow-2xl w-full h-[80vh] max-w-5xl transition-all duration-300">
-                    
-                    <!-- Toolbar -->
-                    <div class="flex justify-between items-center w-full mb-4">
-                        <div class="flex items-center gap-2">
-                            <i class="ph-duotone ph-cookie text-2xl text-yellow-500"></i>
-                            <h3 class="text-white font-bold text-lg">Cookie Clicker Web</h3>
-                        </div>
-                        <button id="btn-fullscreen" class="bg-brand hover:bg-brandHover text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition text-sm shadow-lg">
-                            <i id="fs-icon" class="ph-bold ph-corners-out"></i> <span id="fs-text">Maximize</span>
-                        </button>
-                    </div>
-
-                    <!-- Game Iframe -->
-                    <div class="w-full flex-grow relative rounded-xl overflow-hidden border border-slate-800 bg-black">
-                        <iframe id="cookie-iframe" src="cookieclicker.html" class="absolute inset-0 w-full h-full border-0"></iframe>
-                    </div>
-
+                <div class="w-full h-[75vh] flex flex-col rounded-xl overflow-hidden border border-slate-700 shadow-2xl bg-black">
+                    <iframe id="cookie-iframe" src="cookieclicker.html" class="w-full h-full border-0"></iframe>
                 </div>
             `;
-            
-            gameContainer.innerHTML = html;
-
-            // Fullscreen Logic (CSS Simulated)
-            const fullscreenBtn = document.getElementById('btn-fullscreen');
-            const clickerCard = document.getElementById('clicker-card');
-            const fsIcon = document.getElementById('fs-icon');
-            const fsText = document.getElementById('fs-text');
-            let isMaximized = false;
-
-            fullscreenBtn.addEventListener('click', () => {
-                isMaximized = !isMaximized;
-                if (isMaximized) {
-                    // Simulate fullscreen using CSS to bypass iframe permissions
-                    clickerCard.classList.remove('h-[80vh]', 'max-w-5xl', 'rounded-2xl', 'p-4', 'sm:p-6', 'border', 'border-slate-700', 'shadow-2xl');
-                    clickerCard.classList.add('fixed', 'inset-0', 'z-[60]', 'h-full', 'w-full', 'p-2', 'bg-darkBg');
-                    fsIcon.classList.replace('ph-corners-out', 'ph-corners-in');
-                    fsText.innerText = 'Restore';
-                } else {
-                    clickerCard.classList.add('h-[80vh]', 'max-w-5xl', 'rounded-2xl', 'p-4', 'sm:p-6', 'border', 'border-slate-700', 'shadow-2xl');
-                    clickerCard.classList.remove('fixed', 'inset-0', 'z-[60]', 'h-full', 'w-full', 'p-2', 'bg-darkBg');
-                    fsIcon.classList.replace('ph-corners-in', 'ph-corners-out');
-                    fsText.innerText = 'Maximize';
-                }
-            });
+            document.getElementById('gameContainer').innerHTML = html;
         }
 
-        // Game 1: Neon Tic-Tac-Toe
         function initTicTacToe() {
             let board = ['', '', '', '', '', '', '', '', ''];
             let currentPlayer = 'X';
@@ -412,31 +382,25 @@
                     <button id="ttt-reset" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-8 rounded-full transition w-full">Restart Game</button>
                 </div>
             `;
-            gameContainer.innerHTML = html;
+            document.getElementById('gameContainer').innerHTML = html;
 
             const statusDisplay = document.getElementById('ttt-status');
             const cells = document.querySelectorAll('.ttt-cell');
-            
             const winningConditions = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
-                [0, 4, 8], [2, 4, 6]             // Diagonals
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
             ];
 
             function handleCellClick(e) {
                 const cell = e.target;
                 const cellIndex = parseInt(cell.id.split('-')[1]);
-
                 if (board[cellIndex] !== '' || !gameActive) return;
 
                 board[cellIndex] = currentPlayer;
                 cell.innerText = currentPlayer;
                 cell.classList.add(currentPlayer === 'X' ? 'text-neonBlue' : 'text-neonPink');
-                if(currentPlayer === 'X') {
-                    cell.style.textShadow = '0 0 15px rgba(0,243,255,0.7)';
-                } else {
-                    cell.style.textShadow = '0 0 15px rgba(255,0,234,0.7)';
-                }
+                cell.style.textShadow = currentPlayer === 'X' ? '0 0 15px rgba(0,243,255,0.7)' : '0 0 15px rgba(255,0,234,0.7)';
 
                 checkWin();
             }
@@ -444,15 +408,8 @@
             function checkWin() {
                 let roundWon = false;
                 for (let i = 0; i <= 7; i++) {
-                    const winCondition = winningConditions[i];
-                    let a = board[winCondition[0]];
-                    let b = board[winCondition[1]];
-                    let c = board[winCondition[2]];
-                    if (a === '' || b === '' || c === '') continue;
-                    if (a === b && b === c) {
-                        roundWon = true;
-                        break;
-                    }
+                    const [a, b, c] = [board[winningConditions[i][0]], board[winningConditions[i][1]], board[winningConditions[i][2]]];
+                    if (a && a === b && b === c) { roundWon = true; break; }
                 }
 
                 if (roundWon) {
@@ -461,8 +418,7 @@
                     return;
                 }
 
-                let roundDraw = !board.includes('');
-                if (roundDraw) {
+                if (!board.includes('')) {
                     statusDisplay.innerHTML = 'Game ended in a Draw!';
                     gameActive = false;
                     return;
@@ -487,17 +443,10 @@
             });
         }
 
-        // Game 2: Emoji Memory Match
         function initEmojiMatch() {
             const emojis = ['👾', '🤖', '🚀', '👽', '🛸', '🕹️', '🔮', '🔋'];
-            let cardsArray = [...emojis, ...emojis];
-            let flippedCards = [];
-            let matchedCount = 0;
-            let canFlip = true;
-            let moves = 0;
-
-            // Shuffle
-            cardsArray.sort(() => 0.5 - Math.random());
+            let cardsArray = [...emojis, ...emojis].sort(() => 0.5 - Math.random());
+            let flippedCards = [], matchedCount = 0, canFlip = true, moves = 0;
 
             const html = `
                 <div class="flex flex-col items-center bg-cardBg p-6 sm:p-8 rounded-2xl border border-slate-700 shadow-2xl max-w-xl w-full">
@@ -509,12 +458,8 @@
                     <div id="mem-grid" class="grid grid-cols-4 gap-2 sm:gap-4 w-full">
                         ${cardsArray.map((emoji, i) => `
                             <div class="memory-card relative w-16 h-16 sm:w-20 sm:h-20 sm:h-24 cursor-pointer" data-index="${i}" data-emoji="${emoji}">
-                                <div class="memory-card-front absolute inset-0 bg-gradient-to-br from-brand to-purple-600 rounded-xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg border border-purple-400/30">
-                                    ${emoji}
-                                </div>
-                                <div class="memory-card-back absolute inset-0 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700 shadow-inner hover:bg-slate-700 transition">
-                                    <i class="ph-fill ph-question text-slate-500 text-2xl"></i>
-                                </div>
+                                <div class="memory-card-front absolute inset-0 bg-gradient-to-br from-brand to-purple-600 rounded-xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg border border-purple-400/30">${emoji}</div>
+                                <div class="memory-card-back absolute inset-0 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700 shadow-inner hover:bg-slate-700 transition"><i class="ph-fill ph-question text-slate-500 text-2xl"></i></div>
                             </div>
                         `).join('')}
                     </div>
@@ -525,58 +470,43 @@
                     </div>
                 </div>
             `;
-            gameContainer.innerHTML = html;
+            document.getElementById('gameContainer').innerHTML = html;
 
             const cards = document.querySelectorAll('.memory-card');
             const movesDisplay = document.getElementById('mem-moves');
             const winDisplay = document.getElementById('mem-win');
 
-            function flipCard(e) {
-                const card = e.currentTarget;
-                
-                if (!canFlip || card.classList.contains('flipped') || flippedCards.includes(card)) return;
+            cards.forEach(card => card.addEventListener('click', (e) => {
+                const c = e.currentTarget;
+                if (!canFlip || c.classList.contains('flipped') || flippedCards.includes(c)) return;
 
-                card.classList.add('flipped');
-                flippedCards.push(card);
+                c.classList.add('flipped');
+                flippedCards.push(c);
 
                 if (flippedCards.length === 2) {
                     canFlip = false;
-                    moves++;
-                    movesDisplay.innerText = moves;
-                    checkMatch();
-                }
-            }
-
-            function checkMatch() {
-                const [card1, card2] = flippedCards;
-                const match = card1.dataset.emoji === card2.dataset.emoji;
-
-                if (match) {
-                    matchedCount += 2;
-                    flippedCards = [];
-                    canFlip = true;
-                    if (matchedCount === cardsArray.length) {
-                        winDisplay.classList.remove('hidden');
-                    }
-                } else {
-                    setTimeout(() => {
-                        card1.classList.remove('flipped');
-                        card2.classList.remove('flipped');
+                    movesDisplay.innerText = ++moves;
+                    
+                    if (flippedCards[0].dataset.emoji === flippedCards[1].dataset.emoji) {
+                        matchedCount += 2;
                         flippedCards = [];
                         canFlip = true;
-                    }, 1000);
+                        if (matchedCount === cardsArray.length) winDisplay.classList.remove('hidden');
+                    } else {
+                        setTimeout(() => {
+                            flippedCards[0].classList.remove('flipped');
+                            flippedCards[1].classList.remove('flipped');
+                            flippedCards = [];
+                            canFlip = true;
+                        }, 1000);
+                    }
                 }
-            }
-
-            cards.forEach(card => card.addEventListener('click', flipCard));
+            }));
             
-            document.getElementById('mem-reset').addEventListener('click', () => {
-                initEmojiMatch(); // Simply re-initialize the game
-            });
+            document.getElementById('mem-reset').addEventListener('click', initEmojiMatch);
         }
 
-        // --- 6. INITIALIZATION ---
-        
+        // --- 7. START APP ---
         renderCategories();
         renderGames();
 
